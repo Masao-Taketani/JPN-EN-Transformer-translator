@@ -25,34 +25,6 @@ def positional_encoding(position, d_model):
   return tf.cast(pos_encoding, dtype=tf.float32)
 
 
-# Masking
-# The mask indicates where pad value 0 is present, it outputs a 1 at thoese
-# locations. Otherwise 0.
-def create_padding_mask(seq):
-  # tf.math.equal(x, y): Returns the truth value of (x == y) element-wise.
-  seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
-
-  # add extra dimensions to add the padding to the attention logits
-  # returned shape: (batch_size, 1, 1, seq_len)
-  return seq[:, tf.newaxis, tf.newaxis, :]
-
-
-def create_look_ahead_mask(seq_len):
-  """
-  tf.linalg.band_part(input, num_lower, num_upper)
-  ([used to be]tf.matrix_band_part)
-  (e.g) tf.linalg.band_part(tf.ones((3, 3)), -1, 0)
-  <tf.Tensor: shape=(3, 3), dtype=float32, numpy=
-  array([[1., 0., 0.],
-         [1., 1., 0.],
-         [1., 1., 1.]], dtype=float32)>
-  [reference]https://dev.classmethod.jp/articles/tensorflow-matrixbandpart/
-  """
-  mask = 1 - tf.linalg.band_part(tf.ones((seq_len, seq_len)), -1, 0)
-  # returned shape: (seq_len, seq_len)
-  return mask
-
-
 # Scaled Dot-Product Attention
 def scaled_dot_product_attention(q, k, v, mask):
   """Calculate the attention weights.
@@ -313,7 +285,7 @@ class Decoder(Layer):
 
 
 class Transformer(Model):
-    
+
   def __init__(self,
                num_layers,
                d_model,
