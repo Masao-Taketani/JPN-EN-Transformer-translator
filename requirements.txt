@@ -1,0 +1,4 @@
+numpy
+matplotlibsklearn
+sentencepiece
+tensorflow >= 2
