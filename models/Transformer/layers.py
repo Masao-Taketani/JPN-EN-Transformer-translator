@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from tf.keras.layers import Layer, Dense, LayerNormalization, Dropout, Embedding
-from tf.keras import Model
+from tensorflow.keras.layers import Layer, Dense, LayerNormalization, Dropout, Embedding
+from tensorflow.keras import Model
 
 
 def get_angles(pos, i, d_model):

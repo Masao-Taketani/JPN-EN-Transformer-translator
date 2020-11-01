@@ -1,6 +1,9 @@
 import sentencepiece as spm
 import tensorflow as tf
 from tensorflow.data.experimental import AUTOTUNE
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.metrics import Mean, SparseCategoricalAccuracy
+from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,6 +35,8 @@ en_sp = spm.SentencePieceProcessor()
 jpn_sp.Load(jpn_sp_model)
 en_sp.Load(en_sp_model)
 
+ckpt_path = "models/Transformer/ckpt/"
+EPOCHS = 100
 
 def main():
     # load data from the data files
@@ -42,6 +47,9 @@ def main():
                                                             test_size=TR_TE_RATIO)
     JPN_MAX_LEN = get_max_len(train_jpn)
     EN_MAX_LEN = get_max_len(train_en)
+    # include [BOS] and [EOS] to each max len above
+    JPN_MAX_LEN += 2
+    EN_MAX_LEN += 2
 
     # preprocess for the train dataset
     train_dataset = tf.data.Dataset.from_tensor_slices((train_jpn, train_en))
@@ -63,7 +71,94 @@ def main():
                               target_vocab_size=en_vocab_size,
                               pe_input=JPN_MAX_LEN,
                               pe_target=EN_MAX_LEN)
+    # set learning rate, optimizer, loss and matrics
+    learning_rate = CustomSchedule(d_model)
+    optimizer = Adam(learning_rate,
+                     beta_1=0.9,
+                     beta_2=0.98,
+                     epsilon=1e-9)
 
+    loss_object = SparseCategoricalCrossentropy(from_logits=True,
+                                                reduction="none")
+    def loss_function(label, pred):
+        mask = tf.math.logical_not(tf.math.equal(label, 0))
+        loss_ = loss_object(label, pred)
+        mask = tf.cast(mask, dtype=loss_.dtype)
+        loss_ *= mask
+        return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+
+    train_loss = Mean(name="train_loss")
+    train_accuracy = SparseCategoricalAccuracy(name="train_accuracy")
+
+    """
+    The @tf.function trace-compiles train_step into a TF graph for faster
+    execution. The function specializes to the precise shape of the argument
+    tensors. To avoid re-tracing due to the variable sequence lengths or
+    variable batch sizes(usually the last batch is smaller), use input_signature
+    to specify more generic shapes.
+    """
+    train_step_signature = [tf.TensorSpec(shape=(None, None), dtype=tf.int64),
+                            tf.TensorSpec(shape=(None, None), dtype=tf.int64)]
+    @tf.function(input_signature=train_step_signature)
+    def train_step(inp, tar):
+        tar_inp = tar[:, :-1]
+        tar_label = tar[:, 1:]
+        training = True
+
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp,
+                                                                         tar_inp)
+        with tf.GradientTape() as tape:
+            predictions, _ = transformer(inp,
+                                         tar_inp,
+                                         training,
+                                         enc_padding,
+                                         combined_mask,
+                                         dec_padding_mask)
+            loss = loss_function(tar_label, predictions)
+
+        gradients = tape.gradient(loss, transformer.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
+
+        train_loss(loss)
+        train_accuracy(tar_label, predictions)
+
+    # set the checkpoint and the checkpoint manager
+    ckpt = tf.train.Checkpoint(transformer=transformer,
+                               optimizer=optimizer)
+    ckpt_manager = tf.train.CheckpointManager(ckpt,
+                                              ckpt_path,
+                                              max_to_keep=5)
+    # if a checkpoint exists, restore the latest checkpoint.
+    if ckpt_manager.latest_checkpoint:
+        ckpt.restore(ckpt_manager.latest_checkpoint)
+        print("Latest checkpoint restored.")
+
+    for epoch in range(EPOCHS):
+        start = time.time()
+
+        train_loss.reset_states()
+        train_accuracy.reset_states()
+
+        # inp: Japanese, tar: English
+        for (batch, (inp, tar)) in enumerate(train_dataset):
+            train_step(inp, tar)
+
+            if batch % 100 == 0:
+                print("Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}"
+                .format(epoch+1,
+                        batch,
+                        train_loss.result(),
+                        train_accuracy.result()))
+
+        if (epoch + 1) % 5 == 0:
+            ckpt_save_path = ckpt_manager.save()
+            print("Saving checkpoint for epoch {} at {}".format(epoch+1,
+                                                                ckpt_save_path))
+
+        print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(epoch+1,
+                                                            train_loss.result(),
+                                                            train_accuracy.result()))
+        print("Time taken for 1 epoch: {} secs\n".format(time.time - start))
 
 
 if __name__ == "__main__":
