@@ -158,7 +158,7 @@ def main():
         print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(epoch+1,
                                                             train_loss.result(),
                                                             train_accuracy.result()))
-        print("Time taken for 1 epoch: {} secs\n".format(time.time - start))
+        print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
 
 
 if __name__ == "__main__":
