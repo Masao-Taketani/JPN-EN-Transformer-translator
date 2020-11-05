@@ -1,3 +1,4 @@
+import os
 import sentencepiece as spm
 import tensorflow as tf
 from tensorflow.data.experimental import AUTOTUNE
@@ -10,7 +11,7 @@ import matplotlib.pyplot as plt
 import time
 
 from models.Transformer.layers import *
-from utils import *
+from utils.utils import *
 from models.Transformer.layers import Transformer
 
 
@@ -36,7 +37,8 @@ jpn_sp.Load(jpn_sp_model)
 en_sp.Load(en_sp_model)
 
 ckpt_path = "models/Transformer/ckpt/"
-EPOCHS = 100
+log_path = "logs/"
+EPOCHS = 45
 
 def main():
     # load data from the data files
@@ -50,6 +52,12 @@ def main():
     # include [BOS] and [EOS] to each max len above
     JPN_MAX_LEN += 2
     EN_MAX_LEN += 2
+
+    test_jpn_data = [["今日は夜ごはん何にしようかな？"],
+                     ["ここ最近暑い日がずっと続きますね。"],
+                     ["来年は本当にオリンピックが開催されるでしょうか？"],
+                     ["将来の夢はエンジニアになることです。"],
+                     ["子供のころはあの公園でたくさん遊んだなー。"]]
 
     # preprocess for the train dataset
     train_dataset = tf.data.Dataset.from_tensor_slices((train_jpn, train_en))
@@ -111,7 +119,7 @@ def main():
             predictions, _ = transformer(inp,
                                          tar_inp,
                                          training,
-                                         enc_padding,
+                                         enc_padding_mask,
                                          combined_mask,
                                          dec_padding_mask)
             loss = loss_function(tar_label, predictions)
@@ -121,6 +129,8 @@ def main():
 
         train_loss(loss)
         train_accuracy(tar_label, predictions)
+
+
 
     # set the checkpoint and the checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=transformer,
@@ -132,6 +142,13 @@ def main():
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint)
         print("Latest checkpoint restored.")
+
+    # set up summary writers
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = os.path.join(log_path, current_time, "train")
+    test_log_dir = os.path.join(log_path, current_time, "validation")
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
     for epoch in range(EPOCHS):
         start = time.time()
@@ -149,6 +166,11 @@ def main():
                         batch,
                         train_loss.result(),
                         train_accuracy.result()))
+
+        with train_summary_writer.as_default():
+            tf.summary.scalar("loss", train_loss.result(), step=epoch)
+            tf.summary.scalar("accuracy", train_accuracy.result(), step=epoch)
+            tf.summary.text("test_text", )
 
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()

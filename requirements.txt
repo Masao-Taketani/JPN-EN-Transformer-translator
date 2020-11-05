@@ -1,4 +1,5 @@
 numpy
-matplotlibsklearn
+matplotlib
+sklearn
 sentencepiece
 tensorflow >= 2
