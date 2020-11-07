@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import datetime
 
 from models.Transformer.layers import *
 from utils.utils import *
@@ -27,15 +28,8 @@ num_heads = 8
 jpn_vocab_size = 8000
 en_vocab_size = 8000
 
-jpn_sp_model = "models/spm/jpn_spm.model"
-en_sp_model = "models/spm/en_spm.model"
 jpn_txt_path = "dataset/jpn_data.txt"
 en_txt_path = "dataset/en_data.txt"
-jpn_sp = spm.SentencePieceProcessor()
-en_sp = spm.SentencePieceProcessor()
-jpn_sp.Load(jpn_sp_model)
-en_sp.Load(en_sp_model)
-
 ckpt_path = "models/Transformer/ckpt/"
 log_path = "logs/"
 EPOCHS = 45
@@ -53,11 +47,11 @@ def main():
     JPN_MAX_LEN += 2
     EN_MAX_LEN += 2
 
-    test_jpn_data = [["今日は夜ごはん何にしようかな？"],
-                     ["ここ最近暑い日がずっと続きますね。"],
-                     ["来年は本当にオリンピックが開催されるでしょうか？"],
-                     ["将来の夢はエンジニアになることです。"],
-                     ["子供のころはあの公園でたくさん遊んだなー。"]]
+    test_jpn_data = ["今日は夜ごはん何にしようかな？",
+                     "ここ最近暑い日がずっと続きますね。",
+                     "来年は本当にオリンピックが開催されるでしょうか？",
+                     "将来の夢はエンジニアになることです。",
+                     "子供のころはあの公園でたくさん遊んだなー。"]
 
     # preprocess for the train dataset
     train_dataset = tf.data.Dataset.from_tensor_slices((train_jpn, train_en))
@@ -65,10 +59,12 @@ def main():
     train_dataset = train_dataset.cache()
     train_dataset = train_dataset.shuffle(len(train_jpn)).padded_batch(BATCH_SIZE)
     train_dataset = train_dataset.prefetch(BATCH_SIZE)
-    # preprocess for the validation dataset
-    val_dataset = tf.data.Dataset.from_tensor_slices((val_jpn, val_en))
-    val_dataset = val_dataset.map(tf_encode)
-    val_dataset = val_dataset.padded_batch(BATCH_SIZE)
+    ## preprocess for the validation dataset
+    #val_dataset = tf.data.Dataset.from_tensor_slices((val_jpn, val_en))
+    #val_dataset = val_dataset.map(tf_encode)
+    #val_dataset = val_dataset.padded_batch(BATCH_SIZE)
+    # preprocess for the test data
+    test_dataset = tf.data.Dataset.from_tensor_slices((test_jpn_data))
 
     # instantiate the Transformer model
     transformer = Transformer(num_layers=num_layers,
@@ -107,6 +103,7 @@ def main():
     """
     train_step_signature = [tf.TensorSpec(shape=(None, None), dtype=tf.int64),
                             tf.TensorSpec(shape=(None, None), dtype=tf.int64)]
+
     @tf.function(input_signature=train_step_signature)
     def train_step(inp, tar):
         tar_inp = tar[:, :-1]
@@ -131,7 +128,6 @@ def main():
         train_accuracy(tar_label, predictions)
 
 
-
     # set the checkpoint and the checkpoint manager
     ckpt = tf.train.Checkpoint(transformer=transformer,
                                optimizer=optimizer)
@@ -148,7 +144,7 @@ def main():
     train_log_dir = os.path.join(log_path, current_time, "train")
     test_log_dir = os.path.join(log_path, current_time, "validation")
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+    #test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
     for epoch in range(EPOCHS):
         start = time.time()
@@ -167,20 +163,24 @@ def main():
                         train_loss.result(),
                         train_accuracy.result()))
 
+        # output the training log for every epoch
+        print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(epoch+1,
+                                                            train_loss.result(),
+                                                            train_accuracy.result()))
+        print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
+
+        # check how the model performs for every epoch
+        test_summary_log = test_translate(test_jpn_data)
+
         with train_summary_writer.as_default():
             tf.summary.scalar("loss", train_loss.result(), step=epoch)
             tf.summary.scalar("accuracy", train_accuracy.result(), step=epoch)
-            tf.summary.text("test_text", )
+            tf.summary.text("test_text", test_summary_log)
 
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
             print("Saving checkpoint for epoch {} at {}".format(epoch+1,
                                                                 ckpt_save_path))
-
-        print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(epoch+1,
-                                                            train_loss.result(),
-                                                            train_accuracy.result()))
-        print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
 
 
 if __name__ == "__main__":

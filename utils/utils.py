@@ -177,15 +177,27 @@ def plot_attention_weights(attention, sentence, result, layer):
     plt.show()
 
 
-def translate(sentence, plot=""):
+def translate(sentence, result_log=False, plot=""):
     result, attention_weights = evaluate(sentence)
     predicted_sentence = en_sp.decode([i for i in result if i != en_sp.PieceToId("</s>")])
 
-    print("Input: {}".format(sentence))
-    print("Predicted translation: {}".format(predicted_sentence))
+    if result_log:
+        print("Input: {}".format(sentence))
+        print("Predicted translation: {}".format(predicted_sentence))
 
     if plot:
         plot_attention_weights(attention_weights, sentence, result, plot)
+
+    return predicted_sentence
+
+
+@tf.function
+def test_translate(test_inp_data):
+    trans_log = []
+    for inp_sentence in test_inp_data:
+        pred_sentence = translate(inp_sentence)
+        trans_log.append([inp_sentence, pred_sentence])
+    return trans_log
 
 
 class CustomSchedule(LearningRateSchedule):
