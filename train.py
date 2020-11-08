@@ -32,17 +32,17 @@ jpn_txt_path = "dataset/jpn_data.txt"
 en_txt_path = "dataset/en_data.txt"
 ckpt_path = "models/Transformer/ckpt/"
 log_path = "logs/"
-EPOCHS = 45
+EPOCHS = 50
 
 def main():
     # load data from the data files
     jpn_data = get_data(jpn_txt_path)
     en_data = get_data(en_txt_path)
-    train_jpn, val_jpn, train_en, val_en = train_test_split(jpn_data,
-                                                            en_data,
-                                                            test_size=TR_TE_RATIO)
-    JPN_MAX_LEN = get_max_len(train_jpn)
-    EN_MAX_LEN = get_max_len(train_en)
+    #train_jpn, val_jpn, train_en, val_en = train_test_split(jpn_data,
+    #                                                        en_data,
+    #                                                        test_size=TR_TE_RATIO)
+    JPN_MAX_LEN = get_max_len(jpn_data)
+    EN_MAX_LEN = get_max_len(en_data)
     # include [BOS] and [EOS] to each max len above
     JPN_MAX_LEN += 2
     EN_MAX_LEN += 2
@@ -54,23 +54,28 @@ def main():
                      "子供のころはあの公園でたくさん遊んだなー。"]
 
     # preprocess for the train dataset
-    train_dataset = tf.data.Dataset.from_tensor_slices((train_jpn, train_en))
+    train_dataset = tf.data.Dataset.from_tensor_slices((jpn_data, en_data))
     train_dataset = train_dataset.map(tf_encode)
     train_dataset = train_dataset.cache()
-    train_dataset = train_dataset.shuffle(len(train_jpn)).padded_batch(BATCH_SIZE)
-    train_dataset = train_dataset.prefetch(BATCH_SIZE)
+    train_dataset = train_dataset.shuffle(len(jpn_data)).padded_batch(BATCH_SIZE)
+    train_dataset = train_dataset.prefetch(AUTOTUNE)
     ## preprocess for the validation dataset
     #val_dataset = tf.data.Dataset.from_tensor_slices((val_jpn, val_en))
     #val_dataset = val_dataset.map(tf_encode)
     #val_dataset = val_dataset.padded_batch(BATCH_SIZE)
     # preprocess for the test data
     test_dataset = tf.data.Dataset.from_tensor_slices((test_jpn_data))
+    test_dataset = test_dataset.map(tf_encode)
+    test_dataset = test_dataset.cache()
+    test_dataset = test_dataset.padded_batch(len(test_jpn_data))
+    test_dataset = test_dataset.prefetch(AUTOTUNE)
 
     # instantiate the Transformer model
     transformer = Transformer(num_layers=num_layers,
                               d_model=d_model,
                               num_heads=num_heads,
-                              dff=dff,
+
+                          dff=dff,
                               input_vocab_size=jpn_vocab_size,
                               target_vocab_size=en_vocab_size,
                               pe_input=JPN_MAX_LEN,
@@ -141,9 +146,9 @@ def main():
 
     # set up summary writers
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = os.path.join(log_path, current_time, "train")
-    test_log_dir = os.path.join(log_path, current_time, "validation")
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    log_dir = os.path.join(log_path, current_time, "train")
+    #test_log_dir = os.path.join(log_path, current_time, "validation")
+    summary_writer = tf.summary.create_file_writer(log_dir)
     #test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
     for epoch in range(EPOCHS):
@@ -170,9 +175,9 @@ def main():
         print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
 
         # check how the model performs for every epoch
-        test_summary_log = test_translate(test_jpn_data)
+        test_summary_log = test_translate(test_dataset)
 
-        with train_summary_writer.as_default():
+        with summary_writer.as_default():
             tf.summary.scalar("loss", train_loss.result(), step=epoch)
             tf.summary.scalar("accuracy", train_accuracy.result(), step=epoch)
             tf.summary.text("test_text", test_summary_log)

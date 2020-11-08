@@ -192,9 +192,9 @@ def translate(sentence, result_log=False, plot=""):
 
 
 @tf.function
-def test_translate(test_inp_data):
+def test_translate(test_dataset):
     trans_log = []
-    for inp_sentence in test_inp_data:
+    for inp_sentence in test_dataset:
         pred_sentence = translate(inp_sentence)
         trans_log.append([inp_sentence, pred_sentence])
     return trans_log
