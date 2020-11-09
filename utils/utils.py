@@ -177,9 +177,10 @@ def plot_attention_weights(attention, sentence, result, layer):
     plt.show()
 
 
-def translate(sentence, result_log=False, plot=""):
-    result, attention_weights = evaluate(sentence)
-    predicted_sentence = en_sp.decode([i for i in result if i != en_sp.PieceToId("</s>")])
+def translate(sentence, en_max_len, model, result_log=False, plot=""):
+    result, attention_weights = evaluate(sentence, en_max_len, model)
+    pred_ids_list = [int(i) for i in result if int(i) != en_sp.PieceToId("</s>")]
+    predicted_sentence = en_sp.decode(pred_ids_list)
 
     if result_log:
         print("Input: {}".format(sentence))
@@ -191,11 +192,10 @@ def translate(sentence, result_log=False, plot=""):
     return predicted_sentence
 
 
-@tf.function
-def test_translate(test_dataset):
+def test_translate(test_data, en_max_len, model):
     trans_log = []
-    for inp_sentence in test_dataset:
-        pred_sentence = translate(inp_sentence)
+    for inp_sentence in test_data:
+        pred_sentence = translate(inp_sentence, en_max_len, model)
         trans_log.append([inp_sentence, pred_sentence])
     return trans_log
 

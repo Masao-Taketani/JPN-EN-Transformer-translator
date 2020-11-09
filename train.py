@@ -48,10 +48,16 @@ def main():
     EN_MAX_LEN += 2
 
     test_jpn_data = ["今日は夜ごはん何にしようかな？",
-                     "ここ最近暑い日がずっと続きますね。",
-                     "来年は本当にオリンピックが開催されるでしょうか？",
-                     "将来の夢はエンジニアになることです。",
-                     "子供のころはあの公園でたくさん遊んだなー。"]
+                     "ここ最近暑い日がずっと続きますね。",]
+                     #"来年は本当にオリンピックが開催されるでしょうか？",
+                     #"将来の夢はエンジニアになることです。",
+                     #"子供のころはあの公園でたくさん遊んだなー。"]
+
+    #test_en_data = [[""],
+    #                [""],
+    #                [""],
+    #                [""],
+    #                [""]]
 
     # preprocess for the train dataset
     train_dataset = tf.data.Dataset.from_tensor_slices((jpn_data, en_data))
@@ -64,11 +70,11 @@ def main():
     #val_dataset = val_dataset.map(tf_encode)
     #val_dataset = val_dataset.padded_batch(BATCH_SIZE)
     # preprocess for the test data
-    test_dataset = tf.data.Dataset.from_tensor_slices((test_jpn_data))
-    test_dataset = test_dataset.map(tf_encode)
-    test_dataset = test_dataset.cache()
-    test_dataset = test_dataset.padded_batch(len(test_jpn_data))
-    test_dataset = test_dataset.prefetch(AUTOTUNE)
+    #test_dataset = tf.data.Dataset.from_tensor_slices((test_jpn_data, test_en_data))
+    #test_dataset = test_dataset.map(tf_encode)
+    #test_dataset = test_dataset.cache()
+    #test_dataset = test_dataset.padded_batch(len(test_jpn_data))
+    #test_dataset = test_dataset.prefetch(AUTOTUNE)
 
     # instantiate the Transformer model
     transformer = Transformer(num_layers=num_layers,
@@ -175,12 +181,12 @@ def main():
         print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
 
         # check how the model performs for every epoch
-        test_summary_log = test_translate(test_dataset)
+        test_summary_log = test_translate(test_jpn_data, EN_MAX_LEN, transformer)
 
         with summary_writer.as_default():
             tf.summary.scalar("loss", train_loss.result(), step=epoch)
             tf.summary.scalar("accuracy", train_accuracy.result(), step=epoch)
-            tf.summary.text("test_text", test_summary_log)
+            tf.summary.text("test_text", test_summary_log, step=epoch)
 
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
