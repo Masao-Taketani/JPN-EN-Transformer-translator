@@ -135,20 +135,20 @@ def evaluate(inp_sentence, en_max_len, model):
                                                combined_mask,
                                                dec_padding_mask)
 
-    # select the last word from the seq_len dimension
-    # shape: (batch_size, 1, vocab_size)
-    predictions = predictions[:, -1:, :]
-    predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
+        # select the last word from the seq_len dimension
+        # shape: (batch_size, 1, vocab_size)
+        predictions = predictions[:, -1:, :]
+        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
-    # return the result if the predicted_id is equal to the end token
-    if predicted_id == en_sp.PieceToId("</s>"):
-          # tf.squeeze: Removes dimensions of size 1 from the shape of a tensor.
-          #   axis: If specified, only squeezes the dimensions listed.
-          return tf.squeeze(output, axis=0), attention_weights
+        # return the result if the predicted_id is equal to the end token
+        if predicted_id == en_sp.PieceToId("</s>"):
+              # tf.squeeze: Removes dimensions of size 1 from the shape of a tensor.
+              #   axis: If specified, only squeezes the dimensions listed.
+              return tf.squeeze(output, axis=0), attention_weights
 
-    # concatenate the predicted_id to the output which is given to the decoder
-    # as its input.
-    output = tf.concat([output, predicted_id], axis=-1)
+        # concatenate the predicted_id to the output which is given to the decoder
+        # as its input.
+        output = tf.concat([output, predicted_id], axis=-1)
 
     return tf.squeeze(output, axis=0), attention_weights
 

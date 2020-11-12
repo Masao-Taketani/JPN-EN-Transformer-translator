@@ -80,8 +80,7 @@ def main():
     transformer = Transformer(num_layers=num_layers,
                               d_model=d_model,
                               num_heads=num_heads,
-
-                          dff=dff,
+                              dff=dff,
                               input_vocab_size=jpn_vocab_size,
                               target_vocab_size=en_vocab_size,
                               pe_input=JPN_MAX_LEN,
