@@ -144,7 +144,8 @@ def main():
 
 
     # set the checkpoint and the checkpoint manager
-    ckpt = tf.train.Checkpoint(transformer=transformer,
+    ckpt = tf.train.Checkpoint(epoch=tf.Variable(0),
+                               transformer=transformer,
                                optimizer=optimizer)
     ckpt_manager = tf.train.CheckpointManager(ckpt,
                                               ckpt_path,
@@ -161,9 +162,9 @@ def main():
     summary_writer = tf.summary.create_file_writer(log_dir)
     #test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
-    for epoch in range(EPOCHS):
+    for ckpt.epoch in range(EPOCHS):
         start = time.time()
-
+        ckpt.epoch.assign_add(1)
         train_loss.reset_states()
         train_accuracy.reset_states()
 
@@ -173,13 +174,13 @@ def main():
 
             if batch % 100 == 0:
                 print("Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}"
-                .format(epoch+1,
+                .format(ckpt.epoch,
                         batch,
                         train_loss.result(),
                         train_accuracy.result()))
 
         # output the training log for every epoch
-        print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(epoch+1,
+        print("Epoch {} Loss {:.4f} Accuracy {:.4f}".format(ckpt.epoch,
                                                             train_loss.result(),
                                                             train_accuracy.result()))
         print("Time taken for 1 epoch: {:.3f} secs\n".format(time.time() - start))
@@ -188,13 +189,13 @@ def main():
         test_summary_log = test_translate(test_jpn_data, EN_MAX_LEN, transformer)
 
         with summary_writer.as_default():
-            tf.summary.scalar("loss", train_loss.result(), step=epoch)
-            tf.summary.scalar("accuracy", train_accuracy.result(), step=epoch)
-            tf.summary.text("test_text", test_summary_log, step=epoch)
+            tf.summary.scalar("loss", train_loss.result(), step=ckpt.epoch)
+            tf.summary.scalar("accuracy", train_accuracy.result(), step=ckpt.epoch)
+            tf.summary.text("test_text", test_summary_log, step=ckpt.epoch)
 
-        if (epoch + 1) % 5 == 0:
+        if (ckpt.epoch) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
-            print("Saving checkpoint for epoch {} at {}".format(epoch+1,
+            print("Saving checkpoint for epoch {} at {}".format(ckpt.epoch,
                                                                 ckpt_save_path))
 
 
