@@ -14,7 +14,7 @@ python train.py
 
 ## Translate
 ```
-python translate.py
+python translate.py [Japanese Sentence] (e.g. python translate.py お元気ですか。)
 ```
 Or you can execute translation using Jupyter Notebook(`notebooks/test.ipynb`).
 
