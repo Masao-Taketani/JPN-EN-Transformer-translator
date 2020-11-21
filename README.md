@@ -5,7 +5,20 @@
 
 ## Tokenizer
 - [SentencePiece](https://github.com/google/sentencepiece)(Used for both Japanese and English.)
+- Set word size 8000 for Japanese and English respectively.
 
+## Train
+```
+python train.py
+```
+
+## Translate
+```
+python translate.py
+```
+Or you can execute translation using Jupyter Notebook(`notebooks/test.ipynb`).
+
+## 
 ## Reference
 - Papers
   - [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
